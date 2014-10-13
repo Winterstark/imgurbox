@@ -231,6 +231,8 @@ if path.isdir("index"):
             for line in f.read().splitlines():
                 pair = line.replace("http://imgur.com/", "").split(" -> ")
                 index[dirPath][pair[0]] = pair[1]
+else:
+    makedirs("index")
 
 #build current file index
 fileIndex = {}
