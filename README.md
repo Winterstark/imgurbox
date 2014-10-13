@@ -17,7 +17,7 @@ However, the script is not a complete replacement for Dropbox:
 
 Installation and usage
 -----------------------
-1. (You need to have [Python](https://www.python.org/download) installed on your computer)
+1. (You need to have [Python](https://www.python.org/download) and [imgurpython](https://github.com/Imgur/imgurpython) installed on your computer)
 2. Download [imgurbox.py](https://github.com/Winterstark/imgurbox/blob/master/imgurbox.py)
 3. Create a new text file "albums.txt" in imgurbox.py's directory and enter a list of directories that you want to sync (one directory path per line). You can also add existing Imgur albums that you want to download to your computer (one album ID per line).
 4. Run imgurbox.py
