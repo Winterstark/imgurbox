@@ -1,3 +1,6 @@
+# imgurbox v1.0 (2014-10-13)
+# https://github.com/Winterstark/imgurbox
+
 import base64, webbrowser, sys
 from os import path, listdir, makedirs
 from datetime import datetime
