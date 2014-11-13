@@ -2,7 +2,7 @@
 # https://github.com/Winterstark/imgurbox
 
 import base64, webbrowser, sys
-from os import path, listdir, makedirs
+from os import path, listdir, makedirs, remove
 from datetime import datetime
 from urllib import request
 from imgurpython import ImgurClient
@@ -219,18 +219,27 @@ else:
 if path.isdir("index"):
     print("Loading previous file index...")
     for file in listdir("index"):
+        found = False
+        
         with open("index\\" + file) as f:
             #find full directory path
             dirName = path.splitext(file)[0]
+
             for albumDir, albumId in albums.items():
                 if path.basename(albumDir) == dirName:
                     dirPath = albumDir
+                    found = True
                     break
 
-            index[dirPath] = {}
-            for line in f.read().splitlines():
-                pair = line.replace("http://imgur.com/", "").split(" -> ")
-                index[dirPath][pair[0]] = pair[1]
+            if found:
+                index[dirPath] = {}
+                for line in f.read().splitlines():
+                    pair = line.replace("http://imgur.com/", "").split(" -> ")
+                    index[dirPath][pair[0]] = pair[1]
+
+        if not found:
+            if input(file + " is present in the old file index, but not the albums list. Enter 'y' to delete it from the file index: ").lower() == "y":
+                remove("index\\" + file)
 else:
     makedirs("index")
 
