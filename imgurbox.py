@@ -197,7 +197,11 @@ if path.isfile("albums.txt"):
                             n = len(imgs)
 
                             for i in range(n):
-                                filename = imgs[i].link[imgs[i].link.rfind('/')+1:]
+                                try:
+                                    filename = imgs[i].name + imgs[i].link[imgs[i].link.rfind('.'):] #original filename + extension
+                                except:
+                                    filename = imgs[i].link[imgs[i].link.rfind('/')+1:] #imgur link
+
                                 log_msg("Downloading image {0}/{1}: {2}...".format(i+1, n, filename))
 
                                 with open(album.title + "\\" + filename, "b+w") as f:
@@ -220,7 +224,7 @@ if path.isdir("index"):
     print("Loading previous file index...")
     for file in listdir("index"):
         found = False
-        
+
         with open("index\\" + file) as f:
             #find full directory path
             dirName = path.splitext(file)[0]
