@@ -219,6 +219,12 @@ else:
     input("Press Enter to exit...")
     sys.exit(0)
 
+#modifiedDirs indicates which directory's index has changed and needs to be saved
+modifiedDirs = {albumDir: False for albumDir, albumId in albums.items()}
+
+for newDir in newDirs:
+    modifiedDirs[newDir] = True
+
 #load previous index (containing both filenames and imgur IDs)
 if path.isdir("index"):
     print("Loading previous file index...")
@@ -238,8 +244,19 @@ if path.isdir("index"):
             if found:
                 index[dirPath] = {}
                 for line in f.read().splitlines():
-                    pair = line.replace("http://imgur.com/", "").split(" -> ")
-                    index[dirPath][pair[0]] = pair[1]
+                    fields = line.replace("http://imgur.com/", "").split(" -> ")
+
+                    if len(fields) == 3:
+                        index[dirPath][fields[0]] = [fields[1], fields[2]]
+                    else:
+                        #index from previous version, is missing file's Date Modified property
+                        filePath = dirPath + "\\" + fields[0]
+                        modifiedDirs[dirPath] = True
+
+                        if path.isfile(filePath):
+                            index[dirPath][fields[0]] = [fields[1], str(path.getmtime(filePath))]
+                        else:
+                            index[dirPath][fields[0]] = [fields[1], "-1"]
 
         if not found:
             if input(file + " is present in the old file index, but not the albums list. Enter 'y' to delete it from the file index: ").lower() == "y":
@@ -258,28 +275,34 @@ for albumDir, albumId in albums.items():
         if path.splitext(file)[1].lower() in allowedTypes:
             fileIndex[albumDir].append(file)
 
-#modifiedDirs indicates which directory's index has changed and needs to be saved
-modifiedDirs = {albumDir: False for albumDir, albumId in albums.items()}
-
-for newDir in newDirs:
-    modifiedDirs[newDir] = True
-
-#get a list of new and removed files
+#get a list of removed files
 removedFiles = []
+
 for dir in index:
-    for filename, imgId in index[dir].items():
+    for filename, imgData in index[dir].items():
         if filename not in fileIndex[dir]:
             removedFiles.append(dir + "\\" + filename)
             modifiedDirs[dir] = True
 
+#get a list of new and modified files
 newFiles = []
+modifiedFiles = []
+
 for dir in fileIndex:
     for file in fileIndex[dir]:
-        if file not in index[dir]:
-            newFiles.append(dir + "\\" + file)
-            modifiedDirs[dir] = True
+        filePath = dir + "\\" + file
 
-if len(newFiles) + len(removedFiles) == 0:
+        if file not in index[dir]:
+            newFiles.append(filePath)
+            modifiedDirs[dir] = True
+        else:
+            fileDate = str(path.getmtime(filePath))
+
+            if index[dir][file][1] != fileDate:
+                modifiedFiles.append([filePath, fileDate])
+
+#apply local changes to Imgur albums
+if len(newFiles) + len(removedFiles) + len(modifiedFiles) == 0:
     if len(newDirs) == 0:
         print("No change.")
 else:
@@ -300,7 +323,8 @@ else:
 
             srcAlbumId = albums[srcDir]
             destAlbumId = albums[destDir]
-            imgId = index[srcDir][filename]
+            imgId = index[srcDir][filename][0]
+            fileDate = index[srcDir][filename][1]
             
             #update Imgur
             album_remove_images(client, srcAlbumId, imgId)
@@ -308,7 +332,7 @@ else:
 
             #update index
             del index[srcDir][filename]
-            index[destDir][filename] = imgId
+            index[destDir][filename] = [imgId, fileDate]
 
             removedFiles.remove(removedFile)
             newFiles.remove(movedTo)
@@ -320,7 +344,8 @@ else:
         albumDir = path.dirname(newFile)
         filename = path.basename(newFile)
 
-        index[albumDir][filename] = upload_from_path(client, newFile, {"album": albums[albumDir]}, False)["id"]
+        imgId = upload_from_path(client, newFile, {"album": albums[albumDir]}, False)["id"]
+        index[albumDir][filename] = [imgId, str(path.getmtime(newFile))]
 
     #delete removed files
     for removedFile in removedFiles:
@@ -329,8 +354,24 @@ else:
         albumDir = path.dirname(removedFile)
         filename = path.basename(removedFile)
 
-        delete_image(client, index[albumDir][filename])
+        delete_image(client, index[albumDir][filename][0])
         del index[albumDir][filename]
+
+    #replace modified files
+    for modifiedFile, fileDate in modifiedFiles:
+        if input("Temp. safeguard. File {0} has been modified. (y/n): ".format(modifiedFile)).lower() == "y":
+            log_msg("File {0} has changed. Uploading new version...".format(modifiedFile))
+
+            albumDir = path.dirname(modifiedFile)
+            filename = path.basename(modifiedFile)
+
+            delete_image(client, index[albumDir][filename][0])
+
+            newImgId = upload_from_path(client, modifiedFile, {"album": albums[albumDir]}, False)["id"]
+            index[albumDir][filename] = [newImgId, fileDate]
+            modifiedDirs[albumDir] = True
+        else:
+            print("Skipped.")
 
 #save data
 print("Saving albums and file index...")
@@ -343,8 +384,8 @@ with open("albums.txt", "w") as f:
 for dir, modified in modifiedDirs.items():
     if modified:
         with open("index\\" + path.basename(dir) + ".txt", "w") as f:
-            for filename, imgId in index[dir].items():
-                f.write("{0} -> http://imgur.com/{1}\n".format(filename, imgId))
+            for filename, imgData in index[dir].items():
+                f.write("{0} -> http://imgur.com/{1} -> {2}\n".format(filename, imgData[0], imgData[1]))
 
 #update log
 with open("log.txt", "a") as f:
