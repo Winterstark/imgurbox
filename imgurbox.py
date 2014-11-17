@@ -249,12 +249,12 @@ if path.isdir("index"):
                     if len(fields) == 3:
                         index[dirPath][fields[0]] = [fields[1], fields[2]]
                     else:
-                        #index from previous version, is missing file's Date Modified property
+                        #index from previous version, is missing filesizes
                         filePath = dirPath + "\\" + fields[0]
                         modifiedDirs[dirPath] = True
 
                         if path.isfile(filePath):
-                            index[dirPath][fields[0]] = [fields[1], str(path.getmtime(filePath))]
+                            index[dirPath][fields[0]] = [fields[1], str(path.getsize(filePath))]
                         else:
                             index[dirPath][fields[0]] = [fields[1], "-1"]
 
@@ -296,10 +296,10 @@ for dir in fileIndex:
             newFiles.append(filePath)
             modifiedDirs[dir] = True
         else:
-            fileDate = str(path.getmtime(filePath))
+            fileSize = str(path.getsize(filePath))
 
-            if index[dir][file][1] != fileDate:
-                modifiedFiles.append([filePath, fileDate])
+            if index[dir][file][1] != fileSize:
+                modifiedFiles.append([filePath, fileSize])
 
 #apply local changes to Imgur albums
 if len(newFiles) + len(removedFiles) + len(modifiedFiles) == 0:
@@ -324,7 +324,7 @@ else:
             srcAlbumId = albums[srcDir]
             destAlbumId = albums[destDir]
             imgId = index[srcDir][filename][0]
-            fileDate = index[srcDir][filename][1]
+            fileSize = index[srcDir][filename][1]
             
             #update Imgur
             album_remove_images(client, srcAlbumId, imgId)
@@ -332,7 +332,7 @@ else:
 
             #update index
             del index[srcDir][filename]
-            index[destDir][filename] = [imgId, fileDate]
+            index[destDir][filename] = [imgId, fileSize]
 
             removedFiles.remove(removedFile)
             newFiles.remove(movedTo)
@@ -345,7 +345,7 @@ else:
         filename = path.basename(newFile)
 
         imgId = upload_from_path(client, newFile, {"album": albums[albumDir]}, False)["id"]
-        index[albumDir][filename] = [imgId, str(path.getmtime(newFile))]
+        index[albumDir][filename] = [imgId, str(path.getsize(newFile))]
 
     #delete removed files
     for removedFile in removedFiles:
@@ -358,7 +358,7 @@ else:
         del index[albumDir][filename]
 
     #replace modified files
-    for modifiedFile, fileDate in modifiedFiles:
+    for modifiedFile, fileSize in modifiedFiles:
         if input("Temp. safeguard. File {0} has been modified. (y/n): ".format(modifiedFile)).lower() == "y":
             log_msg("File {0} has changed. Uploading new version...".format(modifiedFile))
 
@@ -368,7 +368,7 @@ else:
             delete_image(client, index[albumDir][filename][0])
 
             newImgId = upload_from_path(client, modifiedFile, {"album": albums[albumDir]}, False)["id"]
-            index[albumDir][filename] = [newImgId, fileDate]
+            index[albumDir][filename] = [newImgId, fileSize]
             modifiedDirs[albumDir] = True
         else:
             print("Skipped.")
