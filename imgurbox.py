@@ -359,19 +359,16 @@ else:
 
     #replace modified files
     for modifiedFile, fileSize in modifiedFiles:
-        if input("Temp. safeguard. File {0} has been modified. (y/n): ".format(modifiedFile)).lower() == "y":
-            log_msg("File {0} has changed. Uploading new version...".format(modifiedFile))
+        log_msg("File {0} has changed. Uploading new version...".format(modifiedFile))
 
-            albumDir = path.dirname(modifiedFile)
-            filename = path.basename(modifiedFile)
+        albumDir = path.dirname(modifiedFile)
+        filename = path.basename(modifiedFile)
 
-            delete_image(client, index[albumDir][filename][0])
+        delete_image(client, index[albumDir][filename][0])
 
-            newImgId = upload_from_path(client, modifiedFile, {"album": albums[albumDir]}, False)["id"]
-            index[albumDir][filename] = [newImgId, fileSize]
-            modifiedDirs[albumDir] = True
-        else:
-            print("Skipped.")
+        newImgId = upload_from_path(client, modifiedFile, {"album": albums[albumDir]}, False)["id"]
+        index[albumDir][filename] = [newImgId, fileSize]
+        modifiedDirs[albumDir] = True
 
 #save data
 print("Saving albums and file index...")
