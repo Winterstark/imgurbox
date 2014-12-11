@@ -7,12 +7,12 @@ The script detects the following changes:
 * New file in directory -> upload it to the associated album
 * Deleted file -> delete it from Imgur
 * File moved from one directory to another -> move the uploaded image accordingly
+* Changed the contents of a file -> delete the old version from Imgur and upload the new one
 
 However, the script is not a complete replacement for Dropbox:
 * Because the script uses filenames to identify images, having multiple files with the same name (in different directories) could lead to confusion in certain scenarios. For example, if you delete the picture "pic1.jpg" from one folder, and add a different picture with the same name "pic1.jpg" to another folder, imgurbox will think you only moved "pic1.jpg" from one folder to another.
-* This also means the script doesn't detect changes made to the images themselves (any edits made to their content).
 * Also note that imgurbox tracks only changes made locally — if you delete an image in Imgur the script will not delete the corresponding file (but will, in fact, reupload the image again).
-* Finally, you should be aware that Imgur [deletes images](http://imgur.com/faq#long) if they haven't been viewed for 6 months. If that happens imgurbox will reupload them, but this can be worked around by sharing your images with others or downloading a complete copy of your albums every 6 months.
+* Finally, you should be aware that Imgur [deletes images](http://imgur.com/faq#long) if they haven't been viewed for 6 months. If that happens imgurbox will reupload them, but this can be worked around by sharing your images with others (so they contribute views) or downloading a complete copy of your albums every 6 months.
 
 
 Installation and usage
