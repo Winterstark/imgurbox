@@ -1,4 +1,4 @@
-# imgurbox v1.01 (2014-12-31)
+# imgurbox v1.02 (2015-01-15)
 # https://github.com/Winterstark/imgurbox
 
 import base64, webbrowser, sys
@@ -166,23 +166,11 @@ if path.isfile("albums.txt"):
                     if path.isdir(line):
                         log_msg("New directory: " + line)
 
-                        #upload dir
-                        name = path.basename(line)
-                        album = create_album(client, {"title": name, "layout": "grid"})
-                        files = listdir(line)
-                        n = len(files)
-                        index[line] = {}
-
-                        for i in range(n):
-                            filename = line + "\\" + path.basename(files[i])
-
-                            if path.splitext(filename)[1] in allowedTypes:
-                                log_msg("Uploading file {0}/{1}: {2}...".format(i+1, n, filename))
-                                index[line][path.basename(filename)] = [upload_from_path(client, filename, {"album": album["id"]}, False)["id"], str(path.getsize(filename))]
-                            else:
-                                log_msg("Can't upload {0} because Imgur doesn't support its file type.".format(filename))
-
+                        #create new Imgur album
+                        album = create_album(client, {"title": path.basename(line), "layout": "grid"})
                         albums[line] = album["id"]
+                        
+                        index[line] = {}
                         newDirs.append(line)
                     else:
                         album = get_album(client, line)
