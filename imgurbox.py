@@ -303,7 +303,7 @@ else:
                 break
 
         if movedTo != "":
-            log_msg("File {0} moved to {1}. Updating image...".format(removedFile, movedTo))
+            log_msg("File {0} moved from {1} to {2}. Updating Imgur...".format(path.basename(removedFile), path.dirname(removedFile), path.dirname(movedTo)))
 
             destDir = path.dirname(movedTo)
             srcDir = path.dirname(removedFile)
