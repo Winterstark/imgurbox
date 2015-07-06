@@ -1,8 +1,9 @@
+#!/usr/bin/env python3
 # imgurbox v1.02 (2015-01-15)
 # https://github.com/Winterstark/imgurbox
 
 import base64, webbrowser, sys
-from os import path, listdir, makedirs, remove
+from os import path, listdir, makedirs, remove, sep
 from datetime import datetime
 from urllib import request
 from imgurpython import ImgurClient
@@ -192,10 +193,10 @@ if path.isfile("albums.txt"):
 
                                 log_msg("Downloading image {0}/{1}: {2}...".format(i+1, n, filename))
 
-                                with open(album.title + "\\" + filename, "b+w") as f:
+                                with open(album.title + sep + filename, "b+w") as f:
                                     f.write(request.urlopen(imgs[i].link).read())
 
-                                index[album.title][filename] = [imgs[i].id, str(path.getsize(album.title + "\\" + filename))]
+                                index[album.title][filename] = [imgs[i].id, str(path.getsize(album.title + sep + filename))]
 
                         albums[album.title] = album.id
                         newDirs.append(album.title)
@@ -219,7 +220,7 @@ if path.isdir("index"):
     for file in listdir("index"):
         found = False
 
-        with open("index\\" + file) as f:
+        with open("index" + sep + file) as f:
             #find full directory path
             dirName = path.splitext(file)[0]
 
@@ -238,7 +239,7 @@ if path.isdir("index"):
                         index[dirPath][fields[0]] = [fields[1], fields[2]]
                     else:
                         #index from previous version, is missing filesizes
-                        filePath = dirPath + "\\" + fields[0]
+                        filePath = dirPath + sep + fields[0]
                         modifiedDirs[dirPath] = True
 
                         if path.isfile(filePath):
@@ -248,7 +249,7 @@ if path.isdir("index"):
 
         if not found:
             if input(file + " is present in the old file index, but not the albums list. Enter 'y' to delete it from the file index: ").lower() == "y":
-                remove("index\\" + file)
+                remove("index" + sep + file)
 else:
     makedirs("index")
 
@@ -269,7 +270,7 @@ removedFiles = []
 for dir in index:
     for filename, imgData in index[dir].items():
         if filename not in fileIndex[dir]:
-            removedFiles.append(dir + "\\" + filename)
+            removedFiles.append(dir + sep + filename)
             modifiedDirs[dir] = True
 
 #get a list of new and modified files
@@ -278,7 +279,7 @@ modifiedFiles = []
 
 for dir in fileIndex:
     for file in fileIndex[dir]:
-        filePath = dir + "\\" + file
+        filePath = dir + sep + file
 
         if file not in index[dir]:
             newFiles.append(filePath)
@@ -368,7 +369,7 @@ with open("albums.txt", "w") as f:
 #save index
 for dir, modified in modifiedDirs.items():
     if modified:
-        with open("index\\" + path.basename(dir) + ".txt", "w") as f:
+        with open("index" + sep + path.basename(dir) + ".txt", "w") as f:
             for filename, imgData in index[dir].items():
                 f.write("{0} -> http://imgur.com/{1} -> {2}\n".format(filename, imgData[0], imgData[1]))
 
