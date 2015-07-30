@@ -116,7 +116,7 @@ def log_msg(msg):
 
 #MAIN
 def main():
-    global albums, modifiedDirs
+    global albums, modifiedDirs, index
 
     allowedTypes = [".jpg", ".jpeg", ".gif", ".png", ".apng", ".tiff", ".bmp", ".pdf", ".xcf"]
     index = {}
@@ -385,10 +385,10 @@ def save_data():
 #START POINT (and Exception handling)
 try:
     log = "imgurbox started @ " + str(datetime.now()) + "\n"
-    main();
+    main()
 except:
-    log_msg("Uh-oh: " + str(traceback.format_exception(*sys.exc_info())));
+    log_msg("Uh-oh: " + str(traceback.format_exception(*sys.exc_info())))
     print("Press Enter to exit...")
-    input();
+    input()
 finally:
     save_data()
