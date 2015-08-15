@@ -32,7 +32,20 @@ Remember that you can edit "albums.txt" at any time:
 In case of any problems check the file "log.txt" to see what operations the script has done.
 
 
+drivebox
+----------
+drivebox.py is basically imgurbox.py using Google Drive instead of Imgur. The advantages of this are:
+* Images will not be downgraded in quality if they are too large
+* You can backup any type of file, not just images
+* Folder hierarchy is preserved
+* The files won't be automatically deleted after 6 months
+* Google Drive can keep track of older versions of files (but not files older than 30 days)
+
+The script is used in the same way as imgurbox.py, except that you need to install [Google Drive API Client Library for Python](https://developers.google.com/api-client-library/python/start/installation) first, and then add your files and folder paths to "paths.txt" (NOT "albums.txt"). If you want a file or folder to keep track of different file versions, add an asterisk '*' at the beginning of the path.
+
+
 APIs used
 ----------
 
 * [imgurpython](https://github.com/Imgur/imgurpython)
+* [Google Drive API Client Library for Python](https://developers.google.com/api-client-library/python/start/installation)
