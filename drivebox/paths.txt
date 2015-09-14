@@ -1,4 +1,5 @@
 C:\dox
+C:\pix
 "C:\apps\Wordy\words.txt"
 "C:\apps\Wordy\languages\words-de.txt"
 "C:\apps\Wordy\languages\words-it.txt"

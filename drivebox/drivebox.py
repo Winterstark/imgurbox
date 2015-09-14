@@ -351,13 +351,13 @@ def save_data():
         f.write(log + "\n")
 
 
-if __name__ == "__main__":
-    try:
-        log = "drivebox started @ " + str(datetime.now()) + "\n"
-        main()
-    except:
-        log_msg("Uh-oh: " + str(traceback.format_exception(*sys.exc_info())))
-        print("Press Enter to exit...")
-        input()
-    finally:
-        save_data()
+#START POINT (and Exception handling)
+try:
+    log = "drivebox started @ " + str(datetime.now()) + "\n"
+    main()
+except:
+    log_msg("Uh-oh: " + str(traceback.format_exception(*sys.exc_info())))
+    print("Press Enter to exit...")
+    input()
+finally:
+    save_data()
