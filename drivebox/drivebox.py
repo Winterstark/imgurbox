@@ -321,7 +321,7 @@ def main():
                             f.write("*" + path + "\n")
                         else:
                             f.write(path + "\n")
-        elif index[contents] == {}:
+        elif index["contents"] == {}:
             #first time running with no paths: sync imgur albums to disk
             log_msg("paths.txt not found or empty!")
             print("Create a file \"paths.txt\" with a list of file and folder paths that you want to sync to Google Drive.")
@@ -352,6 +352,9 @@ def save_data():
 
 
 #START POINT (and Exception handling)
+if __name__ != "__main__": #if this file was called from another python script set the current working directory to this one
+    os.chdir(os.path.dirname(__file__))
+
 try:
     log = "drivebox started @ " + str(datetime.now()) + "\n"
     main()
