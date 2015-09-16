@@ -2111,31 +2111,7 @@ imgurbox started @ 2015-09-14 20:57:25.847652
 Uploading new file: C:\pix\walls\Autumn - Day - Cloudy\20759019613_511a20b8f3_k.jpg...
 Uploading new file: C:\pix\walls\Summer - Night - Clear\21201093530_d1209a5947_k.jpg...
 
-imgurbox started @ 2015-09-14 20:57:51.796498
-
-imgurbox started @ 2015-09-15 01:04:19.789360
-
-imgurbox started @ 2015-09-15 10:10:43.692640
-
-drivebox started @ 2015-09-15 10:10:49.117950
-Uh-oh: ['Traceback (most recent call last):\n', '  File "drivebox\\drivebox.py", line 357, in <module>\n    main()\n', '  File "drivebox\\drivebox.py", line 324, in main\n    elif index[contents] == {}:\n', "NameError: name 'contents' is not defined\n"]
-
-drivebox started @ 2015-09-15 10:13:24.212821
-Uh-oh: ['Traceback (most recent call last):\n', '  File "drivebox\\drivebox.py", line 357, in <module>\n    main()\n', '  File "drivebox\\drivebox.py", line 324, in main\n    elif contents not in index or index[contents] == {}:\n', "NameError: name 'contents' is not defined\n"]
-
-drivebox started @ 2015-09-15 10:13:55.068586
-paths.txt not found or empty!
-
-drivebox started @ 2015-09-15 10:17:20.075312
-paths.txt not found or empty!
-
-imgurbox started @ 2015-09-15 10:43:10.280184
-
-imgurbox started @ 2015-09-15 10:43:24.135809
-
-imgurbox started @ 2015-09-15 10:44:20.352310
-
-imgurbox started @ 2015-09-15 11:01:46.254853
-
-imgurbox started @ 2015-09-15 11:02:51.947370
+imgurbox started @ 2015-09-16 10:05:54.772990
+Uploading new file: C:\pix\walls\Autumn - Day\21402575175_719e7a5f86_k.jpg...
+Uploading new file: C:\pix\walls\Summer - Day - Rain\21231928749_17840389ac_k.jpg...
 
