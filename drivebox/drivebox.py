@@ -1,3 +1,11 @@
+#This value tells the script what to do when it detects that a local tracked file has been deleted
+DEFAULT_ACTION_FOR_DELETED_FILES = 2
+#Delete this line to make the script ask you what to do for every deleted file, or use one of the following values:
+#1. Restore it using the synced version on Google Drive
+#2. Delete the synced version on Google Drive as well (PERMANENT)
+#3. Do nothing
+
+
 import os, sys, traceback, httplib2, ast
 from datetime import datetime
 
@@ -202,8 +210,14 @@ def checkForChanges(service, path, file):
                 if subFilePath not in file["contents"]:
                     addFile(service, subFilePath, file)
     else:
-        print(path + " has been deleted.\n1. Restore it using the synced version on Google Drive\n2. Delete the synced version on Google Drive as well (PERMANENT)\n3. Do nothing")
-        choice = input("What would you like to do? (1/2/3) ")
+        actions = ["1. Restore it using the synced version on Google Drive", "2. Delete the synced version on Google Drive as well (PERMANENT)", "3. Do nothing"]
+
+        if "DEFAULT_ACTION_FOR_DELETED_FILES" in globals():
+            print(path + " has been deleted. Taking default action {}".format(actions[DEFAULT_ACTION_FOR_DELETED_FILES-1]))
+            choice = str(DEFAULT_ACTION_FOR_DELETED_FILES)
+        else:
+            print(path + " has been deleted.\n{0}\n{1}\n{2}".format(actions[0], actions[1], actions[2]))
+            choice = input("What would you like to do? (1/2/3) ")
 
         if len(choice) > 0:
             if choice[0] == "1":
