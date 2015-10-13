@@ -307,7 +307,7 @@ def removeUnusedFiles(service, folder, path):
                 break
 
         if not existsLocally:
-            print("Deleting unused file from: {0} (ID: {1})".format(driveFile["title"], driveFile["id"]))
+            log_msg("Deleting unused file from: {0} (ID: {1})".format(driveFile["title"], driveFile["id"]))
             deleteFile(service, driveFile["id"], driveFile["title"])
 
     for keyPath, localFile in folder["contents"].items():
@@ -466,7 +466,7 @@ def main():
 
             #remove unused files from google drive
             if argRemoveUnusedFiles:
-                print ("Removing unused files from Google Drive")
+                log_msg("Removing unused files from Google Drive")
 
                 for path, file in index["contents"].items():
                     if "contents" in file:

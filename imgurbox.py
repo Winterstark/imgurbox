@@ -11,6 +11,7 @@ from imgurpython.imgur.models.account import Account
 from imgurpython.imgur.models.album import Album
 from imgurpython.imgur.models.image import Image
 from imgurpython.helpers.error import ImgurClientError
+from colorama import init, Fore
 
 
 def get_authorization():
@@ -107,11 +108,20 @@ def get_image(self, image_id):
     return Image(image)
 
 
-def log_msg(msg):
+def log_msg(msg, color=""):
     global log
     log += msg + "\n"
 
-    print(msg)
+    if color == "":
+        print(msg)
+    else:
+        colorPrint(msg, color)
+
+
+def colorPrint(text, color, endline="\n"):
+    print(color, end="")
+    print(text, end=endline)
+    print(Fore.RESET, end="")
 
 
 #MAIN
@@ -133,7 +143,7 @@ def main():
             try:
                 get_account(client, "me")
             except ImgurClientError as err:
-                log_msg("Error while initializing Imgur client:" + err.error_message)
+                log_msg("Error while initializing Imgur client:" + err.error_message, Fore.RED)
                 client = get_authorization()
     else:
         client = get_authorization()
@@ -167,7 +177,7 @@ def main():
                             line = line[lb:]
 
                         if path.isdir(line):
-                            log_msg("New directory: " + line)
+                            log_msg("New directory: " + line, Fore.YELLOW)
 
                             #create new Imgur album
                             album = create_album(client, {"title": path.basename(line), "layout": "grid"})
@@ -177,7 +187,7 @@ def main():
                             newDirs.append(line)
                         else:
                             album = get_album(client, line)
-                            log_msg("New album: " + album.title)
+                            log_msg("New album: " + album.title, Fore.YELLOW)
 
                             if not path.isdir(album.title):
                                 makedirs(album.title)
@@ -193,7 +203,7 @@ def main():
                                     except:
                                         filename = imgs[i].link[imgs[i].link.rfind('/')+1:] #imgur link
 
-                                    log_msg("Downloading image {0}/{1}: {2}...".format(i+1, n, filename))
+                                    log_msg("Downloading image {0}/{1}: {2}...".format(i+1, n, filename), Fore.BLUE)
 
                                     with open(album.title + sep + filename, "b+w") as f:
                                         f.write(request.urlopen(imgs[i].link).read())
@@ -204,7 +214,7 @@ def main():
                             newDirs.append(album.title)
     else:
         #first time running with no albums: sync imgur albums to disk
-        log_msg("albums.txt not found!")
+        log_msg("albums.txt not found!", Fore.RED)
         print("Create a file \"albums.txt\" with a list of directory paths that you want to sync to Imgur (or Imgur album IDs that you want to sync to this computer).")
         print("Check the readme for more information.")
         input("Press Enter to exit...")
@@ -306,7 +316,7 @@ def main():
                     break
 
             if movedTo != "":
-                log_msg("File {0} moved from {1} to {2}. Updating Imgur...".format(path.basename(removedFile), path.dirname(removedFile), path.dirname(movedTo)))
+                log_msg("File {0} moved from {1} to {2}. Updating Imgur...".format(path.basename(removedFile), path.dirname(removedFile), path.dirname(movedTo)), Fore.MAGENTA)
 
                 destDir = path.dirname(movedTo)
                 srcDir = path.dirname(removedFile)
@@ -330,7 +340,7 @@ def main():
 
         #upload new files
         for newFile in newFiles:
-            log_msg("Uploading new file: {0}...".format(newFile))
+            log_msg("Uploading new file: {0}...".format(newFile), Fore.GREEN)
             
             albumDir = path.dirname(newFile)
             filename = path.basename(newFile)
@@ -340,7 +350,7 @@ def main():
 
         #delete removed files
         for removedFile in removedFiles:
-            log_msg("Deleting old file: {0}...".format(removedFile))
+            log_msg("Deleting old file: {0}...".format(removedFile), Fore.RED)
             
             albumDir = path.dirname(removedFile)
             filename = path.basename(removedFile)
@@ -350,7 +360,7 @@ def main():
 
         #replace modified files
         for modifiedFile, fileSize in modifiedFiles:
-            log_msg("File {0} has changed. Uploading new version...".format(modifiedFile))
+            log_msg("File {0} has changed. Uploading new version...".format(modifiedFile), Fore.CYAN)
 
             albumDir = path.dirname(modifiedFile)
             filename = path.basename(modifiedFile)
@@ -385,9 +395,10 @@ def save_data():
 #START POINT (and Exception handling)
 try:
     log = "imgurbox started @ " + str(datetime.now()) + "\n"
+    init() #colorama init
     main()
 except:
-    log_msg("Uh-oh: " + str(traceback.format_exception(*sys.exc_info())))
+    log_msg("Uh-oh: " + str(traceback.format_exception(*sys.exc_info())), Fore.RED)
     print("Press Enter to exit...")
     input()
 finally:
