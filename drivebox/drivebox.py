@@ -15,6 +15,20 @@ import oauth2client
 from oauth2client import client, tools
 
 try:
+    #extract arguments used by drivebox.py
+    if "/u" in sys.argv:
+        argRemoveUnusedFiles = True
+        sys.argv.remove("/u")
+    else:
+        argRemoveUnusedFiles = False
+
+    if "/r" in sys.argv:
+        argRestoreIndex = True
+        sys.argv.remove("/r")
+    else:
+        argRestoreIndex = False
+
+    #parse arguments used by oauth api
     import argparse
     flags = argparse.ArgumentParser(parents=[tools.argparser]).parse_args()
 except ImportError:
@@ -137,7 +151,10 @@ def updateFile(service, fileID, path, createRevision):
 
 #also works for folders
 def deleteFile(service, fileID, path):
-    service.files().delete(fileId=fileID).execute()
+    try:
+        service.files().delete(fileId=fileID).execute()
+    except:
+        log_msg("WARNING! Deleting file: " + path + " (ID: " + fileID + ") failed!") #The file might already be deleted?
 
 
 def downloadFile(service, fileID, path):
@@ -188,7 +205,9 @@ def addFile(service, path, parentFolder, manageRevisions=False):
 
 #works for files and folders
 def checkForChanges(service, path, file):
-    if os.path.exists(path):
+    if file["id"] == "DEL ME PLS": #this probably means the script crashed last time after it deleted this file
+        pass #ignore it; the script will remove the entry after it finishes execution without crashing
+    elif os.path.exists(path):
         if "size" in file: #file
             currentFilesize = str(os.path.getsize(path))
 
@@ -251,6 +270,51 @@ def removeDeletedFiles(folder):
     return toDel
 
 
+#rebuilds the file index without downloading files and folders
+#useful if index.txt somehow gets deleted or damaged
+def restoreFolderIndex(service, path, folder):
+    print("Processing {}...".format(path))
+
+    driveFiles = service.files().list(maxResults=1000, q="'" + folder["id"] + "' in parents").execute().get('items', [])
+
+    for driveFile in driveFiles:
+        localPath = path + os.sep + driveFile["title"]
+
+        if not os.path.exists(localPath): #missing file (has probably been deleted)
+            print(localPath + " does not exist on your computer. Ignoring file.")
+        else:
+            if os.path.isfile(localPath): #file
+                folder["contents"][localPath] = {"id": driveFile["id"], "size": str(os.path.getsize(localPath)), "revs": folder["revs"]}
+            else: #folder
+                folder["contents"][localPath] = {"id": driveFile["id"], "contents": {}, "revs": folder["revs"]}
+                restoreFolderIndex(service, localPath, folder["contents"][localPath])
+
+            print("Restored index entry of " + localPath)
+
+
+#check if there are any files or folders on google drive that are not present in the index, and remove them
+#these files are sometimes left behind when the script crashes, and while they pose no problems for the script in the future, they do take up space on google drive
+def removeUnusedFiles(service, folder, path):
+    print("Checking:", path)
+
+    driveFiles = service.files().list(maxResults=1000, q="'" + folder["id"] + "' in parents").execute().get('items', [])
+    for driveFile in driveFiles:
+        existsLocally = False
+
+        for keyPath, localFile in folder["contents"].items():
+            if localFile["id"] == driveFile["id"]:
+                existsLocally = True
+                break
+
+        if not existsLocally:
+            print("Deleting unused file from: {0} (ID: {1})".format(driveFile["title"], driveFile["id"]))
+            deleteFile(service, driveFile["id"], driveFile["title"])
+
+    for keyPath, localFile in folder["contents"].items():
+        if "contents" in localFile: #subfolder
+            removeUnusedFiles(service, localFile, keyPath)
+
+
 def log_msg(msg, newline="\n"):
     global log
     log += msg + newline
@@ -268,7 +332,7 @@ def main():
     service = discovery.build("drive", "v2", http=http)
 
     #load previous file index
-    if os.path.isfile("index.txt"):
+    if not argRestoreIndex and os.path.isfile("index.txt"):
         print("Loading previous file index")
         with open("index.txt") as f:
             fileContents = f.read()
@@ -281,7 +345,7 @@ def main():
 
     if index["id"] == "":
         #check if drivebox folder exists
-        results = service.files().list(maxResults=10, q="mimeType = 'application/vnd.google-apps.folder'").execute()
+        results = service.files().list(maxResults=1000, q="mimeType = 'application/vnd.google-apps.folder'").execute()
         items = results.get("items", [])
 
         for item in items:
@@ -289,70 +353,126 @@ def main():
                 index["id"] = item["id"]
                 break
 
-        if index["id"] == "": #create new drivebox folder
+        if not argRestoreIndex and index["id"] == "": #create new drivebox folder
             index["id"] = createFolder(service, "drivebox")
 
     if index["id"] == "":
         log_msg("Unable to find or create drivebox folder on Google Drive.")
     else:
-        for path, file in index["contents"].items():
-            checkForChanges(service, path, file)
+        if argRestoreIndex:
+            if input("Are you sure you want to rebuild index.txt? ").lower()[0] == 'y':
+                #load paths.txt
+                if os.path.isfile("paths.txt"):
+                    lines = [line.rstrip("\n") for line in open("paths.txt")]
 
-        removedPaths = removeDeletedFiles(index) #cleanup any deleted files from the index
-        
-        #check for new files/folders
-        currentPaths = []
-        revs = [] #list of paths that use manageRevisions
-        updatePaths = False
-
-        if os.path.isfile("paths.txt"):
-            lines = [line.rstrip("\n") for line in open("paths.txt")]
-
-            for line in lines:
-                line = line.strip().replace('"', '')
-                if "*" in line:
-                    line = line.replace("*", "")
-                    revs.append(line)
-                    manageRevisions = True
-                else:
-                    manageRevisions = False
-
-                currentPaths.append(line)
-
-                if line not in index["contents"]:
-                    if os.path.exists(line):
-                        addFile(service, line, index, manageRevisions)
-                    elif line in removedPaths:
-                        currentPaths.remove(line)
-                        updatePaths = True
-                    else:
-                        log_msg("path.txt contains a non-existent path: " + line)
-
-            if updatePaths:
-                with open("paths.txt", "w") as f:
-                    for path in currentPaths:
-                        if path in revs:
-                            f.write("*" + path + "\n")
+                    for line in lines:
+                        line = line.strip().replace('"', '')
+                        if "*" in line:
+                            line = line.replace("*", "")
+                            revs.append(line)
+                            manageRevisions = True
                         else:
-                            f.write(path + "\n")
-        elif index["contents"] == {}:
-            #first time running with no paths: sync imgur albums to disk
-            log_msg("paths.txt not found or empty!")
-            print("Create a file \"paths.txt\" with a list of file and folder paths that you want to sync to Google Drive.")
-            input("Press Enter to exit...")
+                            manageRevisions = False
 
-        #check for removed paths
-        toDel = []
+                        if os.path.isfile(line):
+                            index["contents"][line] = {"id": "", "size": str(os.path.getsize(line)), "revs": manageRevisions}
+                        elif os.path.isdir(line):
+                            index["contents"][line] = {"id": "", "contents": {}, "revs": manageRevisions}
+                        else:
+                            log_msg("Path no longer exists: " + line)
+                            return True
 
-        for path, file in index["contents"].items():
-            if path not in currentPaths:
-                log_msg(path + " has been removed from paths.txt. Deleting synced version (ID: " + file["id"] + ")... ", "")
-                deleteFile(service, file["id"], path)
-                log_msg("DONE!")
-                toDel.append(path)
-        
-        for path in toDel:
-            del index["contents"][path]
+                #get IDs from google drive
+                driveFiles = service.files().list(maxResults=1000, q="'" + index["id"] + "' in parents").execute().get('items', [])
+                for driveFile in driveFiles:
+                    localPath = ""
+                    for path, file in index["contents"].items():
+                        if driveFile["title"] == os.path.basename(path):
+                            localPath = path
+                            break
+
+                    if localPath == "":
+                        localPath = input(driveFile["title"] + " does not appear in paths.txt. Please enter its local path manually: ")
+
+                    index["contents"][localPath]["id"] = driveFile["id"]
+                    print("Restored index entry of " + localPath)
+                
+                #restore subfolders
+                for path, subFolder in index["contents"].items():
+                    if "contents" in subFolder:
+                        restoreFolderIndex(service, path, subFolder)
+            else:
+                print("Aborting.")
+                return False
+        else:
+            for path, file in index["contents"].items():
+                checkForChanges(service, path, file)
+
+            removedPaths = removeDeletedFiles(index) #cleanup any deleted files from the index
+            
+            #check for new files/folders
+            currentPaths = []
+            revs = [] #list of paths that use manageRevisions
+            updatePaths = False
+
+            if os.path.isfile("paths.txt"):
+                lines = [line.rstrip("\n") for line in open("paths.txt")]
+
+                for line in lines:
+                    line = line.strip().replace('"', '')
+                    if "*" in line:
+                        line = line.replace("*", "")
+                        revs.append(line)
+                        manageRevisions = True
+                    else:
+                        manageRevisions = False
+
+                    currentPaths.append(line)
+
+                    if line not in index["contents"]:
+                        if os.path.exists(line):
+                            addFile(service, line, index, manageRevisions)
+                        elif line in removedPaths:
+                            currentPaths.remove(line)
+                            updatePaths = True
+                        else:
+                            log_msg("path.txt contains a non-existent path: " + line)
+
+                if updatePaths:
+                    with open("paths.txt", "w") as f:
+                        for path in currentPaths:
+                            if path in revs:
+                                f.write("*" + path + "\n")
+                            else:
+                                f.write(path + "\n")
+            elif index["contents"] == {}:
+                #first time running with no paths: sync imgur albums to disk
+                log_msg("paths.txt not found or empty!")
+                print("Create a file \"paths.txt\" with a list of file and folder paths that you want to sync to Google Drive.")
+                input("Press Enter to exit...")
+
+            #check for removed paths
+            toDel = []
+
+            for path, file in index["contents"].items():
+                if path not in currentPaths:
+                    log_msg(path + " has been removed from paths.txt. Deleting synced version (ID: " + file["id"] + ")... ", "")
+                    deleteFile(service, file["id"], path)
+                    log_msg("DONE!")
+                    toDel.append(path)
+            
+            for path in toDel:
+                del index["contents"][path]
+
+            #remove unused files from google drive
+            if argRemoveUnusedFiles:
+                print ("Removing unused files from Google Drive")
+
+                for path, file in index["contents"].items():
+                    if "contents" in file:
+                        removeUnusedFiles(service, file, path)
+
+    return True
 
 
 def save_data():
@@ -371,10 +491,12 @@ if __name__ != "__main__": #if this file was called from another python script s
 
 try:
     log = "drivebox started @ " + str(datetime.now()) + "\n"
-    main()
+    saveData = main()
 except:
+    saveData = True
     log_msg("Uh-oh: " + str(traceback.format_exception(*sys.exc_info())))
     print("Press Enter to exit...")
     input()
 finally:
-    save_data()
+    if saveData:
+        save_data()
