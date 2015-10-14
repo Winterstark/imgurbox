@@ -316,7 +316,7 @@ def main():
                     break
 
             if movedTo != "":
-                log_msg("File {0} moved from {1} to {2}. Updating Imgur...".format(path.basename(removedFile), path.dirname(removedFile), path.dirname(movedTo)), Fore.MAGENTA)
+                log_msg("File {0} moved from {1} to {2}. Updating Imgur...".format(path.basename(removedFile), path.dirname(removedFile), path.dirname(movedTo)), Fore.CYAN)
 
                 destDir = path.dirname(movedTo)
                 srcDir = path.dirname(removedFile)
@@ -350,7 +350,7 @@ def main():
 
         #delete removed files
         for removedFile in removedFiles:
-            log_msg("Deleting old file: {0}...".format(removedFile), Fore.RED)
+            log_msg("Deleting old file: {0}...".format(removedFile), Fore.MAGENTA)
             
             albumDir = path.dirname(removedFile)
             filename = path.basename(removedFile)

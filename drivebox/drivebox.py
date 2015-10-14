@@ -8,6 +8,7 @@ DEFAULT_ACTION_FOR_DELETED_FILES = 2
 
 import os, sys, traceback, httplib2, ast
 from datetime import datetime
+from colorama import init, Fore
 
 from apiclient import discovery, http
 from apiclient.http import MediaFileUpload
@@ -77,7 +78,7 @@ def createFolder(service, title, parentID=None):
         body["parents"] = [{"id": parentID}]
 
     root_folder = service.files().insert(body = body).execute()
-    log_msg("Created new folder: " + title + " (ID: " + root_folder["id"] + ")")
+    log_msg("Created new folder: " + title + " (ID: " + root_folder["id"] + ")", color=Fore.YELLOW)
 
     return root_folder["id"]
 
@@ -104,7 +105,7 @@ def getMimeType(path):
 
 
 def uploadFile(service, parentID, path):
-    log_msg("Uploading file: " + path + ". Progress: ", "")
+    log_msg("Uploading file: " + path + ". Progress: ", newline="", color=Fore.GREEN)
 
     media_body = MediaFileUpload(path, resumable=True)
     if '"_mimetype": null' in media_body.to_json(): #unrecognized mimetype: set it manually
@@ -121,15 +122,16 @@ def uploadFile(service, parentID, path):
         if status:
             progress = int(status.progress() * 100)
             if progress < 100:
-                log_msg("%d%%" % progress, " ... ")
+                log_msg("%d%%" % progress, newline=" ... ")
         if done:
             id = request.execute()["id"]
-            log_msg("100% Done! ID: " + id)
+            log_msg("100%", newline=" ")
+            log_msg("Done! ID: " + id, color=Fore.GREEN)
             return id
 
 
 def updateFile(service, fileID, path, createRevision):
-    log_msg("Updating file: " + path + ". Progress: ", "")
+    log_msg("Updating file: " + path + ". Progress: ", newline="", color=Fore.CYAN)
 
     file = service.files().get(fileId=fileID).execute()
     media_body = MediaFileUpload(path, resumable=True)
@@ -143,9 +145,10 @@ def updateFile(service, fileID, path, createRevision):
         if status:
             progress = int(status.progress() * 100)
             if progress < 100:
-                log_msg("%d%%" % progress, " ... ")
+                log_msg("%d%%" % progress, newline=" ... ")
         if done:
-            log_msg("100% Done!")
+            log_msg("100%", newline=" ")
+            log_msg("Done!", color=Fore.CYAN)
             return
 
 
@@ -154,11 +157,11 @@ def deleteFile(service, fileID, path):
     try:
         service.files().delete(fileId=fileID).execute()
     except:
-        log_msg("WARNING! Deleting file: " + path + " (ID: " + fileID + ") failed!") #The file might already be deleted?
+        log_msg("WARNING! Deleting file: " + path + " (ID: " + fileID + ") failed!", color=Fore.RED) #The file might already be deleted?
 
 
 def downloadFile(service, fileID, path):
-    log_msg("Restoring file: " + path + " (ID: " + fileID + "). Progress: ", "")
+    log_msg("Restoring file: " + path + " (ID: " + fileID + "). Progress: ", newline="", color=Fore.BLUE)
 
     with open(path, "wb") as f:
         request = service.files().get_media(fileId=fileID)
@@ -168,17 +171,17 @@ def downloadFile(service, fileID, path):
             status, done = media_request.next_chunk()
             if status:
                 progress = int(status.progress() * 100)
-                log_msg("%d%%" % progress, "")
+                log_msg("%d%%" % progress, newline="")
                 if progress < 100:
-                    log_msg(" ... ", "")
+                    log_msg(" ... ", newline="")
             if done:
-                log_msg("DONE!")
+                log_msg("DONE!", color=Fore.BLUE)
                 return
 
 
 def downloadFolder(service, folderID, path):
     os.makedirs(path)
-    log_msg("Restored folder " + path + " (ID: " + folderID + ")")
+    log_msg("Restored folder " + path + " (ID: " + folderID + ")", color=Fore.BLUE)
     
     files = service.files().list(maxResults=1000, q="'" + folderID + "' in parents and mimeType!='application/vnd.google-apps.folder'").execute().get('items', [])
     for file in files:
@@ -246,9 +249,9 @@ def checkForChanges(service, path, file):
                 else: #folder
                     downloadFolder(service, file["id"], path)
             elif choice[0] == "2":
-                log_msg("Deleting synced version of " + path + " (ID: " + file["id"] + ")... ", "")
+                log_msg("Deleting synced version of " + path + " (ID: " + file["id"] + ")... ", newline="", color=Fore.MAGENTA)
                 deleteFile(service, file["id"], path)
-                log_msg("DONE!")
+                log_msg("DONE!", color=Fore.MAGENTA)
 
                 file["id"] = "DEL ME PLS"
             else:
@@ -289,7 +292,7 @@ def restoreFolderIndex(service, path, folder):
                 folder["contents"][localPath] = {"id": driveFile["id"], "contents": {}, "revs": folder["revs"]}
                 restoreFolderIndex(service, localPath, folder["contents"][localPath])
 
-            print("Restored index entry of " + localPath)
+            colorPrint("Restored index entry of " + localPath, color=Fore.BLUE)
 
 
 #check if there are any files or folders on google drive that are not present in the index, and remove them
@@ -307,7 +310,7 @@ def removeUnusedFiles(service, folder, path):
                 break
 
         if not existsLocally:
-            log_msg("Deleting unused file from: {0} (ID: {1})".format(driveFile["title"], driveFile["id"]))
+            log_msg("Deleting unused file from: {0} (ID: {1})".format(driveFile["title"], driveFile["id"]), color=Fore.MAGENTA)
             deleteFile(service, driveFile["id"], driveFile["title"])
 
     for keyPath, localFile in folder["contents"].items():
@@ -315,12 +318,21 @@ def removeUnusedFiles(service, folder, path):
             removeUnusedFiles(service, localFile, keyPath)
 
 
-def log_msg(msg, newline="\n"):
+def log_msg(msg, newline="\n", color=""):
     global log
     log += msg + newline
 
-    print(msg, end=newline)
+    if color == "":
+        print(msg, end=newline)
+    else:
+        colorPrint(msg, color=color, endline=newline)
     sys.stdout.flush()
+
+
+def colorPrint(text, color, endline="\n"):
+    print(color, end="")
+    print(text, end=endline)
+    print(Fore.RESET, end="")
 
 
 def main():
@@ -357,7 +369,7 @@ def main():
             index["id"] = createFolder(service, "drivebox")
 
     if index["id"] == "":
-        log_msg("Unable to find or create drivebox folder on Google Drive.")
+        log_msg("Unable to find or create drivebox folder on Google Drive.", color=Fore.RED)
     else:
         if argRestoreIndex:
             if input("Are you sure you want to rebuild index.txt? ").lower()[0] == 'y':
@@ -379,7 +391,7 @@ def main():
                         elif os.path.isdir(line):
                             index["contents"][line] = {"id": "", "contents": {}, "revs": manageRevisions}
                         else:
-                            log_msg("Path no longer exists: " + line)
+                            log_msg("Path no longer exists: " + line, color=Fore.RED)
                             return True
 
                 #get IDs from google drive
@@ -395,7 +407,7 @@ def main():
                         localPath = input(driveFile["title"] + " does not appear in paths.txt. Please enter its local path manually: ")
 
                     index["contents"][localPath]["id"] = driveFile["id"]
-                    print("Restored index entry of " + localPath)
+                    print("Restored index entry of " + localPath, color=Fore.BLUE)
                 
                 #restore subfolders
                 for path, subFolder in index["contents"].items():
@@ -436,7 +448,7 @@ def main():
                             currentPaths.remove(line)
                             updatePaths = True
                         else:
-                            log_msg("path.txt contains a non-existent path: " + line)
+                            log_msg("path.txt contains a non-existent path: " + line, color=Fore.RED)
 
                 if updatePaths:
                     with open("paths.txt", "w") as f:
@@ -447,7 +459,7 @@ def main():
                                 f.write(path + "\n")
             elif index["contents"] == {}:
                 #first time running with no paths: sync imgur albums to disk
-                log_msg("paths.txt not found or empty!")
+                log_msg("paths.txt not found or empty!", color=Fore.RED)
                 print("Create a file \"paths.txt\" with a list of file and folder paths that you want to sync to Google Drive.")
                 input("Press Enter to exit...")
 
@@ -456,9 +468,9 @@ def main():
 
             for path, file in index["contents"].items():
                 if path not in currentPaths:
-                    log_msg(path + " has been removed from paths.txt. Deleting synced version (ID: " + file["id"] + ")... ", "")
+                    log_msg(path + " has been removed from paths.txt. Deleting synced version (ID: " + file["id"] + ")... ", newline="", color=Fore.MAGENTA)
                     deleteFile(service, file["id"], path)
-                    log_msg("DONE!")
+                    log_msg("DONE!", color=Fore.MAGENTA)
                     toDel.append(path)
             
             for path in toDel:
@@ -466,7 +478,7 @@ def main():
 
             #remove unused files from google drive
             if argRemoveUnusedFiles:
-                log_msg("Removing unused files from Google Drive")
+                log_msg("Removing unused files from Google Drive", color=Fore.MAGENTA)
 
                 for path, file in index["contents"].items():
                     if "contents" in file:
@@ -491,10 +503,11 @@ if __name__ != "__main__": #if this file was called from another python script s
 
 try:
     log = "drivebox started @ " + str(datetime.now()) + "\n"
+    init() #colorama init
     saveData = main()
 except:
     saveData = True
-    log_msg("Uh-oh: " + str(traceback.format_exception(*sys.exc_info())))
+    log_msg("Uh-oh: " + str(traceback.format_exception(*sys.exc_info())), color=Fore.RED)
     print("Press Enter to exit...")
     input()
 finally:
