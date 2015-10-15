@@ -3,6 +3,8 @@ imgurbox
 
 imgurbox is a python script that syncs pictures to your Imgur account. It is designed to be used with multiple folders, each one representing an Imgur album. Any change you make will be updated as soon as the script runs, creating a system similar to Dropbox, which is useful for backup, sharing, etc.
 
+![imgurbox screenshot](http://i.imgur.com/adjvGAX.png)
+
 The script detects the following changes:
 * New file in directory -> upload it to the associated album
 * Deleted file -> delete it from Imgur
@@ -34,6 +36,9 @@ In case of any problems check the file "log.txt" to see what operations the scri
 
 drivebox
 ----------
+
+![drivebox screenshot](http://i.imgur.com/DJOwWDj.png)
+
 drivebox.py is basically imgurbox.py using Google Drive instead of Imgur. The advantages of this are:
 * Images will not be downgraded in quality if they are too large
 * You can backup any type of file, not just images
@@ -42,6 +47,10 @@ drivebox.py is basically imgurbox.py using Google Drive instead of Imgur. The ad
 * Google Drive can keep track of older versions of files (but not files older than 30 days)
 
 The script is used in the same way as imgurbox.py, except that you need to install [Google Drive API Client Library for Python](https://developers.google.com/api-client-library/python/start/installation) first, and then add your files and folder paths to "paths.txt" (NOT "albums.txt"). If you want a file or folder to keep track of different file versions, add an asterisk '*' at the beginning of the path.
+
+drivebox has two alternate modes of running which are selected with command line arguments:
+* /r repairs index.txt (rebuilds it by listing all of the files uploaded to Google Drive; useful if index.txt got deleted or damaged)
+* /u removes unused files on Google Drive (these files can be left behind if the script crashes after it deletes files from the index but before it updates Google Drive; these files don't have to be deleted, but they do take up space)
 
 
 APIs used
