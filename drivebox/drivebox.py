@@ -407,7 +407,7 @@ def main():
                         localPath = input(driveFile["title"] + " does not appear in paths.txt. Please enter its local path manually: ")
 
                     index["contents"][localPath]["id"] = driveFile["id"]
-                    print("Restored index entry of " + localPath, color=Fore.BLUE)
+                    colorPrint("Restored index entry of " + localPath, color=Fore.BLUE)
                 
                 #restore subfolders
                 for path, subFolder in index["contents"].items():

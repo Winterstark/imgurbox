@@ -1,4 +1,4 @@
-C:\dox
+c:\dox
 C:\pix
 C:\apps\Wordy\visuals
 C:\apps\Wordy\words.txt
