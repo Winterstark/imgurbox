@@ -152,6 +152,12 @@ def updateFile(service, fileID, path, createRevision):
             return
 
 
+def moveFile(service, fileID, oldFolderID, newFolderID, oldPath, newPath):
+    log_msg("File " + os.path.basename(oldPath) + " moved from " + os.path.dirname(oldPath) + " to " + os.path.dirname(newPath) + ". Updating Google Drive... ", newline="", color=Fore.CYAN)
+    file = service.files().update(fileId=fileID, addParents=newFolderID, removeParents=oldFolderID, fields='id, parents').execute()
+    log_msg("Done!", color=Fore.CYAN)
+
+
 #also works for folders
 def deleteFile(service, fileID, path):
     try:
@@ -193,24 +199,60 @@ def downloadFolder(service, folderID, path):
 
 
 #also works for folders
-def addFile(service, path, parentFolder, manageRevisions=False):
+def addFile(service, path, parentFolder, delFiles, manageRevisions=False):
     manageRevisions = manageRevisions or parentFolder["revs"] #if it's not explicitly set to True, use the parent folder's value
 
     if os.path.isfile(path): #file
-        parentFolder["contents"][path] = {"id": uploadFile(service, parentFolder["id"], path), "size": str(os.path.getsize(path)), "revs": manageRevisions}
+        existingFilePath = ""
+        for delPath, delFile in delFiles.items():
+            if os.path.basename(delPath) == os.path.basename(path) and delFile["size"] == str(os.path.getsize(path)):
+                existingFilePath = delPath
+                break
+
+        if existingFilePath != "":
+            delFile = delFiles[existingFilePath]
+
+            moveFile(service, delFile["id"], delFile["folderID"], parentFolder["id"], existingFilePath, path)
+            parentFolder["contents"][path] = {"id": delFile["id"], "size": delFile["size"], "revs": manageRevisions}
+
+            delFiles[delPath]["moved"] = True #mark this file as moved, not deleted
+        else:
+            parentFolder["contents"][path] = {"id": uploadFile(service, parentFolder["id"], path), "size": str(os.path.getsize(path)), "revs": manageRevisions}
     elif os.path.isdir(path): #folder
         path = os.path.normpath(path) #just in case the path has a redundant '\' at the end
         folderID = createFolder(service, os.path.basename(path), parentFolder["id"])
 
         parentFolder["contents"][path] = {"id": folderID, "contents": {}, "revs": manageRevisions}
-        checkForChanges(service, path, parentFolder["contents"][path])
+        checkForNewAndModifiedFiles(service, path, parentFolder["contents"][path], delFiles)
 
 
-#works for files and folders
-def checkForChanges(service, path, file):
+#gets a list of deleted files and folders
+def checkForDeletedFiles(service, path, file, folderID):
+    if file["id"] == "DEL ME PLS": #this probably means the script crashed last time after it deleted this file
+        return {} #ignore it; the script will remove the entry after it finishes execution without crashing
+    elif os.path.exists(path):
+        if "size" in file: #file
+            return {}
+        else: #folder
+            delFiles = {}
+            for subFile in file["contents"]:
+                delFiles.update(checkForDeletedFiles(service, subFile, file["contents"][subFile], file["id"]))
+            return delFiles
+    else:
+        fileInfo = {}
+        for attr in file:
+            fileInfo[attr] = file[attr]
+        fileInfo["folderID"] = folderID
+        file["id"] = "DEL ME PLS"
+
+        return {path: fileInfo}
+
+
+#uploads new files and updates modified and moved files
+def checkForNewAndModifiedFiles(service, path, file, delFiles):
     if file["id"] == "DEL ME PLS": #this probably means the script crashed last time after it deleted this file
         pass #ignore it; the script will remove the entry after it finishes execution without crashing
-    elif os.path.exists(path):
+    else:
         if "size" in file: #file
             currentFilesize = str(os.path.getsize(path))
 
@@ -221,41 +263,53 @@ def checkForChanges(service, path, file):
                 updateFile(service, file["id"], path, file["revs"])
                 file["size"] = currentFilesize
         else: #folder
-            #check if previously-indexed files have been changed or deleted
+            #check if previously-indexed files have been changed
             for subFile in file["contents"]:
-                checkForChanges(service, subFile, file["contents"][subFile])
+                checkForNewAndModifiedFiles(service, subFile, file["contents"][subFile], delFiles)
 
             #check for new files
             currentFiles = [path + os.sep + filename for filename in os.listdir(path)]
 
             for subFilePath in currentFiles:
                 if subFilePath not in file["contents"]:
-                    addFile(service, subFilePath, file)
-    else:
-        actions = ["1. Restore it using the synced version on Google Drive", "2. Delete the synced version on Google Drive as well (PERMANENT)", "3. Do nothing"]
+                    addFile(service, subFilePath, file, delFiles)
 
-        if "DEFAULT_ACTION_FOR_DELETED_FILES" in globals():
-            print(path + " has been deleted. Taking default action {}".format(actions[DEFAULT_ACTION_FOR_DELETED_FILES-1]))
-            choice = str(DEFAULT_ACTION_FOR_DELETED_FILES)
-        else:
-            print(path + " has been deleted.\n{0}\n{1}\n{2}".format(actions[0], actions[1], actions[2]))
-            choice = input("What would you like to do? (1/2/3) ")
 
-        if len(choice) > 0:
-            if choice[0] == "1":
-                if "size" in file: #file
-                    downloadFile(service, file["id"], path)
-                    file["size"] = str(os.path.getsize(path))
-                else: #folder
-                    downloadFolder(service, file["id"], path)
-            elif choice[0] == "2":
-                log_msg("Deleting synced version of " + path + " (ID: " + file["id"] + ")... ", newline="", color=Fore.MAGENTA)
-                deleteFile(service, file["id"], path)
-                log_msg("DONE!", color=Fore.MAGENTA)
+#performs the default action for deleted files (restore, remove, or do nothing)
+def processDeletedFiles(service, path, file, delFiles):
+    if file["id"] == "DEL ME PLS":
+        if path not in delFiles: #this probably means the script crashed last time after it deleted this file
+            pass #ignore it; the script will remove the entry after it finishes execution without crashing
+        elif "moved" in delFiles[path]: #the file has been moved and not deleted
+            pass #do nothing; the script will remove the old entry
+        else: #file has been deleted
+            actions = ["1. Restore it using the synced version on Google Drive", "2. Delete the synced version on Google Drive as well (PERMANENT)", "3. Do nothing"]
 
-                file["id"] = "DEL ME PLS"
+            if "DEFAULT_ACTION_FOR_DELETED_FILES" in globals():
+                print(path + " has been deleted. Taking default action {}".format(actions[DEFAULT_ACTION_FOR_DELETED_FILES-1]))
+                choice = str(DEFAULT_ACTION_FOR_DELETED_FILES)
             else:
-                pass #do nothing
+                print(path + " has been deleted.\n{0}\n{1}\n{2}".format(actions[0], actions[1], actions[2]))
+                choice = input("What would you like to do? (1/2/3) ")
+
+            if len(choice) > 0:
+                if choice[0] == "1":
+                    file["id"] = delFiles[path]["id"] #restore file id
+
+                    if "size" in file: #file
+                        downloadFile(service, file["id"], path)
+                        file["size"] = str(os.path.getsize(path))
+                    else: #folder
+                        downloadFolder(service, file["id"], path)
+                elif choice[0] == "2":
+                    log_msg("Deleting synced version of " + path + " (ID: " + delFiles[path]["id"] + ")... ", newline="", color=Fore.MAGENTA)
+                    deleteFile(service, delFiles[path]["id"], path)
+                    log_msg("DONE!", color=Fore.MAGENTA)
+                else:
+                    pass #do nothing
+    elif "size" not in file: #folder
+        for subFile in file["contents"]:
+                processDeletedFiles(service, subFile, file["contents"][subFile], delFiles)
 
 
 def removeDeletedFiles(folder):
@@ -417,8 +471,15 @@ def main():
                 print("Aborting.")
                 return False
         else:
+            delFiles = {}
             for path, file in index["contents"].items():
-                checkForChanges(service, path, file)
+                delFiles.update(checkForDeletedFiles(service, path, file, index["id"]))
+            
+            for path, file in index["contents"].items():
+                checkForNewAndModifiedFiles(service, path, file, delFiles)
+
+            for path, file in index["contents"].items():
+                processDeletedFiles(service, path, file, delFiles)
 
             removedPaths = removeDeletedFiles(index) #cleanup any deleted files from the index
             
@@ -443,7 +504,7 @@ def main():
 
                     if line not in index["contents"]:
                         if os.path.exists(line):
-                            addFile(service, line, index, manageRevisions)
+                            addFile(service, line, index, delFiles, manageRevisions)
                         elif line in removedPaths:
                             currentPaths.remove(line)
                             updatePaths = True
